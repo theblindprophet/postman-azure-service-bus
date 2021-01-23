@@ -1,0 +1,710 @@
+{
+	"info": {
+		"_postman_id": "5eac906a-de34-44b1-98ad-29d5f487bae0",
+		"name": "Azure Portal - Service Bus Queues",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Device Code",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"device_code\", pm.response.json().device_code);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "client_id",
+									"value": "{{client_id}}",
+									"type": "text"
+								},
+								{
+									"key": "scope ",
+									"value": "https://management.azure.com/user_impersonation offline_access",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{url}}/common/oauth2/v2.0/devicecode",
+							"host": [
+								"{{url}}"
+							],
+							"path": [
+								"common",
+								"oauth2",
+								"v2.0",
+								"devicecode"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Token From Device Code",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.environment.set(\"token\", pm.response.json().access_token);",
+									"pm.environment.set(\"refresh_token\", pm.response.json().refresh_token);"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "client_id",
+									"value": "{{client_id}}",
+									"type": "text"
+								},
+								{
+									"key": "grant_type",
+									"value": "urn:ietf:params:oauth:grant-type:device_code",
+									"type": "text"
+								},
+								{
+									"key": "device_code",
+									"value": "{{device_code}}",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{url}}/common/oauth2/v2.0/token",
+							"host": [
+								"{{url}}"
+							],
+							"path": [
+								"common",
+								"oauth2",
+								"v2.0",
+								"token"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Token From Device Code",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"token\", pm.response.json().access_token);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "client_id",
+									"value": "{{client_id}}",
+									"type": "text"
+								},
+								{
+									"key": "grant_type",
+									"value": "refresh_token",
+									"type": "text"
+								},
+								{
+									"key": "refresh_token",
+									"value": "{{refresh_token}}",
+									"type": "text"
+								},
+								{
+									"key": "scope",
+									"value": "https://management.azure.com/user_impersonation offline_access",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{url}}/common/oauth2/v2.0/token",
+							"host": [
+								"{{url}}"
+							],
+							"path": [
+								"common",
+								"oauth2",
+								"v2.0",
+								"token"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Service Bus Queues",
+			"item": [
+				{
+					"name": "Get Queue",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://management.azure.com/subscriptions/{{subscription_id}}/resourceGroups/{{resource_group_name}}/providers/Microsoft.ServiceBus/namespaces/{{service_bus_namespace_name}}/queues/{{queue_name}}?api-version={{api_version}}",
+							"protocol": "https",
+							"host": [
+								"management",
+								"azure",
+								"com"
+							],
+							"path": [
+								"subscriptions",
+								"{{subscription_id}}",
+								"resourceGroups",
+								"{{resource_group_name}}",
+								"providers",
+								"Microsoft.ServiceBus",
+								"namespaces",
+								"{{service_bus_namespace_name}}",
+								"queues",
+								"{{queue_name}}"
+							],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Peek Queue",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"var uri = 'https://' + pm.environment.get('service_bus_namespace_name') + '.servicebus.windows.net/' + pm.environment.get('queue_name');",
+									"var encoded = encodeURIComponent(uri); ",
+									"var now = new Date(); ",
+									"var week = 60*60*24*7;",
+									"var ttl = Math.round(now.getTime() / 1000) + week;",
+									"var signature = encoded + '\\n' + ttl;",
+									"var signatureUTF8 = signature.toString(\"utf8\");",
+									"var hash = CryptoJS.HmacSHA256(signatureUTF8, pm.environment.get('service_bus_sas_key'));",
+									"var hash64 = hash.toString(CryptoJS.enc.Base64);",
+									"var sas = 'SharedAccessSignature sr=' + encoded + '&sig=' + encodeURIComponent(hash64) + '&se=' + ttl + '&skn=' + 'MyPolicy';",
+									"pm.environment.set('service_bus_sas_full_signature', sas);"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 204) {",
+									"    return;",
+									"}",
+									"",
+									"const brokerPropertiesHeaderString = pm.response.headers.get(\"BrokerProperties\");",
+									"let brokerProperties = null;",
+									"",
+									"try {",
+									"    brokerProperties = JSON.parse(brokerPropertiesHeaderString);",
+									"} catch (e) {",
+									"    pm.expect.fail(e ? e.message || 'Error' : 'Error');",
+									"}",
+									"",
+									"// Set lock properties",
+									"const lockToken = brokerProperties[\"LockToken\"];",
+									"if (lockToken) {",
+									"    pm.environment.set(\"lock_token\", lockToken);",
+									"}",
+									"const messageId = brokerProperties[\"MessageId\"];",
+									"if (lockToken) {",
+									"    pm.environment.set(\"message_id\", messageId);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"warning": "This is a duplicate header and will be overridden by the Authorization header generated by Postman.",
+								"key": "Authorization",
+								"value": "{{service_bus_sas_full_signature}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "https://{{service_bus_namespace_name}}.servicebus.windows.net/{{queue_name}}/messages/head",
+							"protocol": "https",
+							"host": [
+								"{{service_bus_namespace_name}}",
+								"servicebus",
+								"windows",
+								"net"
+							],
+							"path": [
+								"{{queue_name}}",
+								"messages",
+								"head"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Queue Message",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"var uri = 'https://' + pm.environment.get('service_bus_namespace_name') + '.servicebus.windows.net/' + pm.environment.get('queue_name');",
+									"var encoded = encodeURIComponent(uri); ",
+									"var now = new Date(); ",
+									"var week = 60*60*24*7;",
+									"var ttl = Math.round(now.getTime() / 1000) + week;",
+									"var signature = encoded + '\\n' + ttl;",
+									"var signatureUTF8 = signature.toString(\"utf8\");",
+									"var hash = CryptoJS.HmacSHA256(signatureUTF8, pm.environment.get('service_bus_sas_key'));",
+									"var hash64 = hash.toString(CryptoJS.enc.Base64);",
+									"var sas = 'SharedAccessSignature sr=' + encoded + '&sig=' + encodeURIComponent(hash64) + '&se=' + ttl + '&skn=' + 'MyPolicy';",
+									"pm.environment.set('service_bus_sas_full_signature', sas);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"type": "text",
+								"value": "{{service_bus_sas_full_signature}}",
+								"warning": "This is a duplicate header and will be overridden by the Authorization header generated by Postman."
+							}
+						],
+						"url": {
+							"raw": "https://{{service_bus_namespace_name}}.servicebus.windows.net/{{queue_name}}/messages/head",
+							"protocol": "https",
+							"host": [
+								"{{service_bus_namespace_name}}",
+								"servicebus",
+								"windows",
+								"net"
+							],
+							"path": [
+								"{{queue_name}}",
+								"messages",
+								"head"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Unlock Message",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"var uri = 'https://' + pm.environment.get('service_bus_namespace_name') + '.servicebus.windows.net/' + pm.environment.get('queue_name');",
+									"var encoded = encodeURIComponent(uri); ",
+									"var now = new Date(); ",
+									"var week = 60*60*24*7;",
+									"var ttl = Math.round(now.getTime() / 1000) + week;",
+									"var signature = encoded + '\\n' + ttl;",
+									"var signatureUTF8 = signature.toString(\"utf8\");",
+									"var hash = CryptoJS.HmacSHA256(signatureUTF8, pm.environment.get('service_bus_sas_key'));",
+									"var hash64 = hash.toString(CryptoJS.enc.Base64);",
+									"var sas = 'SharedAccessSignature sr=' + encoded + '&sig=' + encodeURIComponent(hash64) + '&se=' + ttl + '&skn=' + 'MyPolicy';",
+									"pm.environment.set('service_bus_sas_full_signature', sas);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"type": "text",
+								"value": "{{service_bus_sas_full_signature}}",
+								"warning": "This is a duplicate header and will be overridden by the Authorization header generated by Postman."
+							}
+						],
+						"url": {
+							"raw": "https://{{service_bus_namespace_name}}.servicebus.windows.net/{{queue_name}}/messages/{{message_id}}/{{lock_token}}",
+							"protocol": "https",
+							"host": [
+								"{{service_bus_namespace_name}}",
+								"servicebus",
+								"windows",
+								"net"
+							],
+							"path": [
+								"{{queue_name}}",
+								"messages",
+								"{{message_id}}",
+								"{{lock_token}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Queue",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "https://management.azure.com/subscriptions/{{subscription_id}}/resourceGroups/{{resource_group_name}}/providers/Microsoft.ServiceBus/namespaces/{{service_bus_namespace_name}}/queues/{{queue_name}}?api-version={{api_version}}",
+							"protocol": "https",
+							"host": [
+								"management",
+								"azure",
+								"com"
+							],
+							"path": [
+								"subscriptions",
+								"{{subscription_id}}",
+								"resourceGroups",
+								"{{resource_group_name}}",
+								"providers",
+								"Microsoft.ServiceBus",
+								"namespaces",
+								"{{service_bus_namespace_name}}",
+								"queues",
+								"{{queue_name}}"
+							],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Queues",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://management.azure.com/subscriptions/{{subscription_id}}/resourceGroups/{{resource_group_name}}/providers/Microsoft.ServiceBus/namespaces/{{service_bus_namespace_name}}/queues?api-version={{api_version}}&$skip=0&$top=100",
+							"protocol": "https",
+							"host": [
+								"management",
+								"azure",
+								"com"
+							],
+							"path": [
+								"subscriptions",
+								"{{subscription_id}}",
+								"resourceGroups",
+								"{{resource_group_name}}",
+								"providers",
+								"Microsoft.ServiceBus",
+								"namespaces",
+								"{{service_bus_namespace_name}}",
+								"queues"
+							],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								},
+								{
+									"key": "$skip",
+									"value": "0"
+								},
+								{
+									"key": "$top",
+									"value": "100"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Send Message",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"var uri = 'https://' + pm.environment.get('service_bus_namespace_name') + '.servicebus.windows.net/' + pm.environment.get('queue_name');",
+									"var encoded = encodeURIComponent(uri); ",
+									"var now = new Date(); ",
+									"var week = 60*60*24*7;",
+									"var ttl = Math.round(now.getTime() / 1000) + week;",
+									"var signature = encoded + '\\n' + ttl;",
+									"var signatureUTF8 = signature.toString(\"utf8\");",
+									"var hash = CryptoJS.HmacSHA256(signatureUTF8, pm.environment.get('service_bus_sas_key'));",
+									"var hash64 = hash.toString(CryptoJS.enc.Base64);",
+									"var sas = 'SharedAccessSignature sr=' + encoded + '&sig=' + encodeURIComponent(hash64) + '&se=' + ttl + '&skn=' + 'MyPolicy';",
+									"pm.environment.set('service_bus_sas_full_signature', sas);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/atom+xml;type=entry;charset=utf-8",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "{{service_bus_sas_full_signature}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"Apples\": \"Apples\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://{{service_bus_namespace_name}}.servicebus.windows.net/{{queue_name}}/messages",
+							"protocol": "https",
+							"host": [
+								"{{service_bus_namespace_name}}",
+								"servicebus",
+								"windows",
+								"net"
+							],
+							"path": [
+								"{{queue_name}}",
+								"messages"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Send Messages",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"var uri = 'https://' + pm.environment.get('service_bus_namespace_name') + '.servicebus.windows.net/' + pm.environment.get('queue_name');",
+									"var encoded = encodeURIComponent(uri); ",
+									"var now = new Date(); ",
+									"var week = 60*60*24*7;",
+									"var ttl = Math.round(now.getTime() / 1000) + week;",
+									"var signature = encoded + '\\n' + ttl;",
+									"var signatureUTF8 = signature.toString(\"utf8\");",
+									"var hash = CryptoJS.HmacSHA256(signatureUTF8, pm.environment.get('service_bus_sas_key'));",
+									"var hash64 = hash.toString(CryptoJS.enc.Base64);",
+									"var sas = 'SharedAccessSignature sr=' + encoded + '&sig=' + encodeURIComponent(hash64) + '&se=' + ttl + '&skn=' + 'MyPolicy';",
+									"pm.environment.set('service_bus_sas_full_signature', sas);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"type": "text",
+								"value": "application/vnd.microsoft.servicebus.json"
+							},
+							{
+								"key": "Authorization",
+								"type": "text",
+								"value": "{{service_bus_sas_full_signature}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "[\n    {\n        \"Body\": \"{ \\\"Apples\\\": \\\"Apples\\\" }\"\n    },\n    {\n        \"Body\": \"{ \\\"Limes\\\": \\\"Limes\\\" }\"\n    },\n    {\n        \"Body\": \"{ \\\"Oranges\\\": \\\"Oranges\\\" }\"\n    }\n]",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://{{service_bus_namespace_name}}.servicebus.windows.net/{{queue_name}}/messages",
+							"protocol": "https",
+							"host": [
+								"{{service_bus_namespace_name}}",
+								"servicebus",
+								"windows",
+								"net"
+							],
+							"path": [
+								"{{queue_name}}",
+								"messages"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create/Update Queue",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"properties\": {\n        \"lockDuration\": \"PT1M\",\n        \"maxSizeInMegabytes\": 10240,\n        \"requiresDuplicateDetection\": false,\n        \"requiresSession\": false,\n        \"defaultMessageTimeToLive\": \"P14D\",\n        \"deadLetteringOnMessageExpiration\": false,\n        \"enableBatchedOperations\": true,\n        \"duplicateDetectionHistoryTimeWindow\": \"PT10M\",\n        \"maxDeliveryCount\": 10,\n        \"sizeInBytes\": 0,\n        \"messageCount\": 0,\n        \"status\": \"Active\",\n        // Cannot be set with Basic tier namespace\n        //\"autoDeleteOnIdle\": \"P10675199DT2H48M5.4775807S\",\n        \"enablePartitioning\": false,\n        \"enableExpress\": false\n    }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://management.azure.com/subscriptions/{{subscription_id}}/resourceGroups/{{resource_group_name}}/providers/Microsoft.ServiceBus/namespaces/{{service_bus_namespace_name}}/queues/{{queue_name}}?api-version={{api_version}}",
+							"protocol": "https",
+							"host": [
+								"management",
+								"azure",
+								"com"
+							],
+							"path": [
+								"subscriptions",
+								"{{subscription_id}}",
+								"resourceGroups",
+								"{{resource_group_name}}",
+								"providers",
+								"Microsoft.ServiceBus",
+								"namespaces",
+								"{{service_bus_namespace_name}}",
+								"queues",
+								"{{queue_name}}"
+							],
+							"query": [
+								{
+									"key": "api-version",
+									"value": "{{api_version}}"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"auth": {
+				"type": "bearer",
+				"bearer": [
+					{
+						"key": "token",
+						"value": "{{token}}",
+						"type": "string"
+					}
+				]
+			},
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "url",
+			"value": "https://login.microsoftonline.com"
+		}
+	]
+}
